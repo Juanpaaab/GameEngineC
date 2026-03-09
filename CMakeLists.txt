@@ -44,6 +44,9 @@ target_link_libraries(engine2d
 add_executable(demo examples/demo/main.cpp)
 target_link_libraries(demo PRIVATE engine2d)
 
+# Pokemon game
+add_subdirectory(games/pokemon)
+
 # Install rules
 install(TARGETS engine2d
     ARCHIVE DESTINATION lib

@@ -1,10 +1,11 @@
 #include "core/Window.hpp"
+#include <optional>
 
 namespace engine {
 
 Window::Window(const WindowConfig& config)
     : m_config(config)
-    , m_window(sf::VideoMode(config.width, config.height), config.title,
+    , m_window(sf::VideoMode({config.width, config.height}), config.title,
                sf::Style::Default)
 {
     if (config.vsync)
@@ -14,11 +15,13 @@ Window::Window(const WindowConfig& config)
 }
 
 void Window::pollEvents() {
-    // Events are handled externally via pollEvent()
+    // Drain all pending SFML events from the queue.
+    // Useful to flush stale input after a scene transition.
+    while (m_window.pollEvent()) {}
 }
 
-bool Window::pollEvent(sf::Event& event) {
-    return m_window.pollEvent(event);
+std::optional<sf::Event> Window::pollEvent() {
+    return m_window.pollEvent();
 }
 
 void Window::clear(sf::Color color) {

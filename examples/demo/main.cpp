@@ -11,8 +11,8 @@ public:
         auto& res = m_game.getResourceManager();
 
         // Create a simple colored square as a "player"
-        m_playerTex.create(32, 32);
-        std::vector<sf::Uint8> pixels(32 * 32 * 4);
+        m_playerTex = sf::Texture(sf::Vector2u{32, 32});
+        std::vector<uint8_t> pixels(32 * 32 * 4);
         for (int i = 0; i < 32 * 32; ++i) {
             pixels[i*4+0] = 100; // R
             pixels[i*4+1] = 180; // G
@@ -22,15 +22,19 @@ public:
         m_playerTex.update(pixels.data());
 
         // Load font (built-in fallback: just draw a shape if font not found)
-        m_fontLoaded = m_font.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf");
-        if (!m_fontLoaded)
-            m_fontLoaded = m_font.loadFromFile("/usr/share/fonts/TTF/DejaVuSans.ttf");
+        auto tryLoad = [&](const char* path) { return m_font.openFromFile(path); };
+        m_fontLoaded = tryLoad("C:/Windows/Fonts/arial.ttf") ||
+                       tryLoad("C:/Windows/Fonts/calibri.ttf") ||
+                       tryLoad("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf") ||
+                       tryLoad("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf") ||
+                       tryLoad("/usr/share/fonts/TTF/DejaVuSans.ttf") ||
+                       tryLoad("/Library/Fonts/Arial.ttf");
 
         // --- Player entity ---
         auto& player = m_world.createEntity("Player");
         player.addComponent<engine::Transform>().position = {384.f, 284.f};
         auto& sc = player.addComponent<engine::SpriteComponent>(m_playerTex);
-        sc.sprite.setOrigin(16.f, 16.f);
+        sc.sprite.setOrigin({16.f, 16.f});
         sc.zOrder = 1;
         player.addComponent<engine::Velocity>();
         player.addComponent<engine::BoxCollider>().size = {32.f, 32.f};
@@ -46,14 +50,14 @@ public:
 
             const float speed = 200.f;
             vel.linear = {0.f, 0.f};
-            if (inp.isKeyDown(sf::Keyboard::W) || inp.isKeyDown(sf::Keyboard::Up))    vel.linear.y -= speed;
-            if (inp.isKeyDown(sf::Keyboard::S) || inp.isKeyDown(sf::Keyboard::Down))  vel.linear.y += speed;
-            if (inp.isKeyDown(sf::Keyboard::A) || inp.isKeyDown(sf::Keyboard::Left))  vel.linear.x -= speed;
-            if (inp.isKeyDown(sf::Keyboard::D) || inp.isKeyDown(sf::Keyboard::Right)) vel.linear.x += speed;
+            if (inp.isKeyDown(sf::Keyboard::Key::W) || inp.isKeyDown(sf::Keyboard::Key::Up))    vel.linear.y -= speed;
+            if (inp.isKeyDown(sf::Keyboard::Key::S) || inp.isKeyDown(sf::Keyboard::Key::Down))  vel.linear.y += speed;
+            if (inp.isKeyDown(sf::Keyboard::Key::A) || inp.isKeyDown(sf::Keyboard::Key::Left))  vel.linear.x -= speed;
+            if (inp.isKeyDown(sf::Keyboard::Key::D) || inp.isKeyDown(sf::Keyboard::Key::Right)) vel.linear.x += speed;
 
             // Rotate
-            if (inp.isKeyDown(sf::Keyboard::Q)) vel.angular = -90.f;
-            else if (inp.isKeyDown(sf::Keyboard::E)) vel.angular = 90.f;
+            if (inp.isKeyDown(sf::Keyboard::Key::Q)) vel.angular = -90.f;
+            else if (inp.isKeyDown(sf::Keyboard::Key::E)) vel.angular = 90.f;
             else vel.angular = 0.f;
         });
 
@@ -68,10 +72,10 @@ public:
             auto& t = hud.addComponent<engine::Transform>();
             t.position = {10.f, 10.f};
             auto& tc = hud.addComponent<engine::TextComponent>();
-            tc.text.setFont(m_font);
-            tc.text.setCharacterSize(16);
-            tc.text.setFillColor(sf::Color::White);
-            tc.text.setString("WASD/Arrows: Move  Q/E: Rotate  ESC: Quit");
+            tc.init(m_font);
+            tc.text->setCharacterSize(16);
+            tc.text->setFillColor(sf::Color::White);
+            tc.text->setString("WASD/Arrows: Move  Q/E: Rotate  ESC: Quit");
             tc.zOrder = 10;
             m_hudID = hud.getID();
         }
@@ -81,6 +85,7 @@ public:
         m_game.getRenderer().getCamera() = engine::Camera(
             static_cast<float>(size.x), static_cast<float>(size.y));
     }
+
 
     void update(float dt) override {
         engine::Scene::update(dt);
@@ -97,8 +102,10 @@ public:
             auto* hud = m_world.getEntity(m_hudID);
             if (hud) {
                 auto& tc = *hud->getComponent<engine::TextComponent>();
-                int fps = m_game.getTime().getFPS();
-                tc.text.setString("WASD/Arrows: Move  Q/E: Rotate  ESC: Quit  |  FPS: " + std::to_string(fps));
+                if (tc.text) {
+                    int fps = m_game.getTime().getFPS();
+                    tc.text->setString("WASD/Arrows: Move  Q/E: Rotate  ESC: Quit  |  FPS: " + std::to_string(fps));
+                }
             }
         }
     }
@@ -121,16 +128,18 @@ public:
         m_game.getWindow().setView(m_game.getWindow().getDefaultView());
         if (m_fontLoaded) {
             auto* hud = m_world.getEntity(m_hudID);
-            if (hud)
-                renderer.drawText(hud->getComponent<engine::TextComponent>()->text);
+            if (hud) {
+                auto* tc = hud->getComponent<engine::TextComponent>();
+                if (tc && tc->text) {
+                    renderer.drawText(*tc->text);
+                }
+            }
         }
     }
-
 private:
     void createObstacle(sf::Vector2f pos, sf::Vector2f size, sf::Color color) {
-        sf::Texture* tex = new sf::Texture();
-        tex->create((unsigned)size.x, (unsigned)size.y);
-        std::vector<sf::Uint8> pixels((int)size.x * (int)size.y * 4);
+        auto* tex = new sf::Texture(sf::Vector2u{(unsigned int)size.x, (unsigned int)size.y});
+        std::vector<uint8_t> pixels((int)size.x * (int)size.y * 4);
         for (std::size_t i = 0; i < pixels.size(); i += 4) {
             pixels[i+0] = color.r;
             pixels[i+1] = color.g;
@@ -156,14 +165,12 @@ private:
     engine::EntityID         m_hudID      = engine::NULL_ENTITY;
 };
 
+
 // ---- Main Game ---------------------------------------------------------
 
 class DemoGame : public engine::Game {
 public:
-    DemoGame() : engine::Game({800, 600, "Game Engine 2D - Demo", 60, false}) {}
-
-protected:
-    void onInit() override {
+    DemoGame() : engine::Game(engine::WindowConfig{800, 600, "Engine Demo - 2D Platformer", 60, false}) {
         getSceneManager().registerScene("demo", [](engine::Game& g) {
             return std::make_unique<DemoScene>(g);
         });
@@ -171,11 +178,10 @@ protected:
     }
 
     void onUpdate(float /*dt*/) override {
-        if (getInput().isKeyPressed(sf::Keyboard::Escape))
+        if (getInput().isKeyPressed(sf::Keyboard::Key::Escape))
             quit();
     }
 };
-
 int main() {
     DemoGame game;
     game.run();

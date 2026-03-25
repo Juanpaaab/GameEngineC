@@ -72,6 +72,8 @@ static const std::unordered_map<int, MoveData> s_moves = {
     {(int)MoveID::Thunderbolt, {"Thunderbolt", Type::Electric, 95, 100,15, true }},
     {(int)MoveID::Slam,        {"Slam",        Type::Normal,   80, 75, 20, false}},
     {(int)MoveID::Bite,        {"Bite",        Type::Normal,   60, 100,25, false}},
+    {(int)MoveID::PoisonSting, {"Poison Sting",Type::Poison,   15, 100,35, false}},
+    {(int)MoveID::Harden,      {"Harden",      Type::Normal,    0, 100,30, false}},
 };
 
 const MoveData& getMoveData(MoveID id) {
@@ -109,6 +111,10 @@ static std::unordered_map<int,SpeciesData> buildSpeciesDB() {
     add(Species::Wartortle, makeSD(8,"Wartortle", Type::Water,Type::Water,  59,63,80,58,65,{{1,M::Tackle},{1,M::Growl},{7,M::WaterGun},{13,M::Bite}},0x6890F0FFu));
     add(Species::Blastoise, makeSD(9,"Blastoise", Type::Water,Type::Water,  79,83,100,78,85,{{1,M::Tackle},{1,M::Growl},{7,M::WaterGun},{13,M::Bite}},0x6890F0FFu));
     add(Species::Caterpie,  makeSD(10,"Caterpie", Type::Bug,  Type::Bug,    45,30,35,45,20,{{1,M::Tackle}},0xA8B820FFu));
+    add(Species::Metapod,   makeSD(11,"Metapod",  Type::Bug,  Type::Bug,    50,20,55,30,25,{{1,M::Tackle},{7,M::Harden}},0xA8B820FFu));
+    add(Species::Butterfree,makeSD(12,"Butterfree",Type::Bug, Type::Flying, 60,45,50,70,80,{{1,M::Confusion},{1,M::Tackle}},0x6890F0FFu));
+    add(Species::Weedle,    makeSD(13,"Weedle",   Type::Bug,  Type::Poison, 40,35,30,50,20,{{1,M::PoisonSting},{9,M::QuickAttack}},0xC69B4AFFu));
+    add(Species::Kakuna,    makeSD(14,"Kakuna",   Type::Bug,  Type::Poison, 45,25,50,35,25,{{1,M::Tackle},{7,M::Harden}},0xC8B820FFu));
     add(Species::Pidgey,    makeSD(16,"Pidgey",   Type::Normal,Type::Flying,40,45,40,56,35,{{1,M::Tackle},{5,M::Growl},{9,M::QuickAttack}},0xA8A878FFu));
     add(Species::Rattata,   makeSD(19,"Rattata",  Type::Normal,Type::Normal,30,56,35,72,25,{{1,M::Tackle},{1,M::Growl},{7,M::QuickAttack}},0xA8A8A8FFu));
     add(Species::Pikachu,   makeSD(25,"Pikachu",  Type::Electric,Type::Electric,35,55,40,90,50,{{1,M::Thundershock},{1,M::Growl},{9,M::QuickAttack}},0xF8D030FFu));
@@ -156,7 +162,9 @@ void PokemonInstance::init(Species s, uint8_t lvl, const std::array<MoveID,MAX_M
     for (int i = 0; i < MAX_MOVES; ++i)
         currentPP[i] = getMoveData(moves[i]).maxPP;
     recalcStats();
-    currentHP = maxHP;
+    currentHP    = maxHP;
+    statusEffect = StatusEffect::None;
+    sleepTurns   = 0;
 }
 
 } // namespace pokemon

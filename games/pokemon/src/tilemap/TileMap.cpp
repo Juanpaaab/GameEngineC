@@ -72,10 +72,10 @@ void TileMap::draw(sf::RenderTarget& target, sf::Vector2i camTile, int viewW, in
             int ty = camTile.y + dy;
             TileID id = get(tx, ty);
             tile.setFillColor(tileColor(id));
-            tile.setPosition(
+            tile.setPosition({
                 static_cast<float>(dx * TILE_SIZE),
                 static_cast<float>(dy * TILE_SIZE)
-            );
+            });
             target.draw(tile);
 
             // Tall grass gets a darker outline

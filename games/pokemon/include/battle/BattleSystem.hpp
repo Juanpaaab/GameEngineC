@@ -47,6 +47,9 @@ private:
     void pushMessage(const std::string& msg);
     void nextMessage();
     void checkFainted();
+    void applyEXP();
+    void applyEndOfTurnStatus(PokemonInstance& p);
+    bool canMove(PokemonInstance& p, bool isPlayer);
     int  calcDamage(const PokemonInstance& atk, const PokemonInstance& def, MoveID move);
 
     const sf::Font&     m_font;
@@ -64,6 +67,10 @@ private:
     // HP bar animation
     float   m_enemyHPDisplay  = 0.f;
     float   m_playerHPDisplay = 0.f;
+
+    // Stat stages per battle (-6 to +6)
+    int m_playerAtkStage = 0, m_playerDefStage = 0;
+    int m_enemyAtkStage  = 0, m_enemyDefStage  = 0;
 
     void drawHPBar(sf::RenderTarget& t, sf::Vector2f pos, float fraction, float w) const;
     void drawPokemon(sf::RenderTarget& t, const PokemonInstance& p,

@@ -49,7 +49,7 @@ protected:
     }
 
     void onUpdate(float /*dt*/) override {
-        if (getInput().isKeyPressed(sf::Keyboard::Escape))
+        if (getInput().isKeyPressed(sf::Keyboard::Key::Escape))
             quit();
     }
 

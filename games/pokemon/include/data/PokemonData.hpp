@@ -37,6 +37,7 @@ enum class MoveID : uint16_t {
     QuickAttack, RazorLeaf,
     Flamethrower, Surf, Thunderbolt,
     Slam, Bite,
+    PoisonSting, Harden,
     COUNT
 };
 
@@ -65,7 +66,7 @@ enum class Species : uint16_t {
     Bulbasaur=1, Ivysaur, Venusaur,
     Charmander=4, Charmeleon, Charizard,
     Squirtle=7, Wartortle, Blastoise,
-    Caterpie=10, Metapod, Butterfree,
+    Caterpie=10, Metapod, Butterfree, Weedle, Kakuna,
     Pidgey=16,
     Rattata=19,
     Pikachu=25,
@@ -74,6 +75,16 @@ enum class Species : uint16_t {
 };
 
 const SpeciesData& getSpeciesData(Species s);
+
+// ---- Status conditions -----------------------------------------------
+enum class StatusEffect : uint8_t {
+    None = 0,
+    Paralysis,   // 25% skip turn; Speed halved for turn-order
+    Poison,      // 1/8 max HP damage at end of each turn
+    Sleep,       // Skip turns; wake after sleepTurns reaches 0
+    Burn,        // 1/8 max HP damage + Attack halved
+    Freeze       // Skip turns; 20% chance to thaw each turn
+};
 
 // ---- Pokemon instance ----------------------------------------------------
 struct PokemonInstance {
@@ -88,6 +99,9 @@ struct PokemonInstance {
     int  defense= 0;
     int  speed  = 0;
     int  special= 0;
+
+    StatusEffect statusEffect = StatusEffect::None;
+    uint8_t      sleepTurns   = 0; // remaining turns asleep
 
     static const int MAX_MOVES = 4;
     std::array<MoveID, MAX_MOVES> moves    = {MoveID::None,MoveID::None,MoveID::None,MoveID::None};

@@ -44,25 +44,38 @@ struct Tag : Component {
 
 // ---- Script (generic update callback) ----
 struct Script : Component {
-    std::function<void(float dt)> onUpdate;
+    std::function<void(float dt)>      onUpdate;
+    std::function<void(Entity& other)> onCollision; // fired when AABB overlap occurs
     explicit Script(std::function<void(float dt)> fn)
-        : onUpdate(std::move(fn)) {}
+        : onUpdate(std::move(fn)) {};
 };
 
 // ---- Animation ----
 struct AnimationComponent : Component {
     sf::IntRect  frameRect;
     int          frameCount    = 1;
+    int          cols          = 0;   // columns per row in spritesheet (0 = single-row layout)
     int          currentFrame  = 0;
     float        frameTime     = 0.1f; // seconds per frame
     float        elapsed       = 0.f;
     bool         looping       = true;
 };
 
-// ---- Text ----
-struct TextComponent : Component {
-    sf::Text text;
-    int      zOrder = 0;
-};
 
+// ---- Text ----
+// SFML 3: sf::Text requires a font at construction, so we use a pointer
+struct TextComponent : Component {
+    sf::Text* text = nullptr;  // Lazy-initialized with font when needed
+    int       zOrder = 0;
+    
+    ~TextComponent() {
+        if (text) delete text;
+    }
+    
+    // Allocate text with font (call this after getting a font reference)
+    void init(const sf::Font& font) {
+        if (text) delete text;
+        text = new sf::Text(font);
+    }
+};
 } // namespace engine

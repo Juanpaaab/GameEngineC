@@ -11,28 +11,19 @@ void InputManager::beginFrame() {
 }
 
 void InputManager::handleEvent(const sf::Event& event) {
-    switch (event.type) {
-    case sf::Event::KeyPressed:
-        m_keysCurrent[static_cast<int>(event.key.code)] = true;
-        break;
-    case sf::Event::KeyReleased:
-        m_keysCurrent[static_cast<int>(event.key.code)] = false;
-        break;
-    case sf::Event::MouseButtonPressed:
-        m_mouseCurrents[static_cast<int>(event.mouseButton.button)] = true;
-        break;
-    case sf::Event::MouseButtonReleased:
-        m_mouseCurrents[static_cast<int>(event.mouseButton.button)] = false;
-        break;
-    case sf::Event::MouseMoved:
-        m_mouseDelta = sf::Vector2i(event.mouseMove.x, event.mouseMove.y) - m_mousePos;
-        m_mousePos   = {event.mouseMove.x, event.mouseMove.y};
-        break;
-    case sf::Event::MouseWheelScrolled:
-        m_scrollDelta = event.mouseWheelScroll.delta;
-        break;
-    default:
-        break;
+    if (const auto* e = event.getIf<sf::Event::KeyPressed>()) {
+        m_keysCurrent[static_cast<int>(e->code)] = true;
+    } else if (const auto* e = event.getIf<sf::Event::KeyReleased>()) {
+        m_keysCurrent[static_cast<int>(e->code)] = false;
+    } else if (const auto* e = event.getIf<sf::Event::MouseButtonPressed>()) {
+        m_mouseCurrents[static_cast<int>(e->button)] = true;
+    } else if (const auto* e = event.getIf<sf::Event::MouseButtonReleased>()) {
+        m_mouseCurrents[static_cast<int>(e->button)] = false;
+    } else if (const auto* e = event.getIf<sf::Event::MouseMoved>()) {
+        m_mouseDelta = e->position - m_mousePos;
+        m_mousePos   = e->position;
+    } else if (const auto* e = event.getIf<sf::Event::MouseWheelScrolled>()) {
+        m_scrollDelta = e->delta;
     }
 }
 

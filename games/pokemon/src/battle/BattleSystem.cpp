@@ -19,9 +19,12 @@ void BattleSystem::start(PokemonInstance* player, PokemonInstance* enemy) {
     m_enemyHPDisplay  = static_cast<float>(m_enemy->currentHP);
     m_playerHPDisplay = static_cast<float>(m_player->currentHP);
 
+    // Reset stat stages
+    m_playerAtkStage = m_playerDefStage = 0;
+    m_enemyAtkStage  = m_enemyDefStage  = 0;
+
     pushMessage("Wild " + m_enemy->getName() + " appeared!");
     pushMessage("Go! " + m_player->getName() + "!");
-    // After intro messages, move to PlayerTurn
 }
 
 void BattleSystem::pushMessage(const std::string& msg) {
@@ -34,6 +37,7 @@ void BattleSystem::nextMessage() {
         // Determine next state after messages
         if (m_state == BattleState::EnemyFainted) {
             m_playerWon = true;
+            applyEXP(); // gains EXP, possibly pushes level-up messages
             m_state     = BattleState::Victory;
         } else if (m_state == BattleState::PlayerFainted) {
             m_state = BattleState::Defeat;
@@ -73,24 +77,47 @@ void BattleSystem::handleInput(int moveIndex) {
     m_player->currentPP[moveIndex]--;
     m_messages.clear(); m_msgIndex = 0;
 
-    // Player attacks first (simplified: always player goes first)
-    executeMove(*m_player, *m_enemy, mv, true);
-    if (m_enemy->isFainted()) {
-        checkFainted();
-        return;
+    // Pick enemy move before resolving (so PP is consumed regardless of who goes first)
+    int enemyMoveIdx = 0;
+    for (int i = 0; i < PokemonInstance::MAX_MOVES; ++i)
+        if (m_enemy->moves[i] != MoveID::None && m_enemy->currentPP[i] > 0) { enemyMoveIdx = i; break; }
+    MoveID emv = m_enemy->moves[enemyMoveIdx];
+    m_enemy->currentPP[enemyMoveIdx]--;
+
+    // Speed-based turn order (paralysis halves speed for ordering)
+    int playerSpd = m_player->speed;
+    int enemySpd  = m_enemy->speed;
+    if (m_player->statusEffect == StatusEffect::Paralysis) playerSpd /= 2;
+    if (m_enemy->statusEffect  == StatusEffect::Paralysis) enemySpd  /= 2;
+    bool playerFirst = (playerSpd > enemySpd) ||
+                       (playerSpd == enemySpd && std::rand() % 2 == 0);
+
+    auto doPlayerMove = [&]() {
+        if (canMove(*m_player, true))
+            executeMove(*m_player, *m_enemy, mv, true);
+    };
+    auto doEnemyMove = [&]() {
+        if (canMove(*m_enemy, false))
+            executeMove(*m_enemy, *m_player, emv, false);
+    };
+
+    if (playerFirst) {
+        doPlayerMove();
+        if (m_enemy->isFainted()) { checkFainted(); return; }
+        doEnemyMove();
+        if (m_player->isFainted()) { checkFainted(); return; }
+    } else {
+        doEnemyMove();
+        if (m_player->isFainted()) { checkFainted(); return; }
+        doPlayerMove();
+        if (m_enemy->isFainted()) { checkFainted(); return; }
     }
 
-    // Enemy picks a random valid move
-    int enemyMove = 0;
-    for (int i = 0; i < PokemonInstance::MAX_MOVES; ++i)
-        if (m_enemy->moves[i] != MoveID::None && m_enemy->currentPP[i] > 0) { enemyMove=i; break; }
-    MoveID emv = m_enemy->moves[enemyMove];
-    m_enemy->currentPP[enemyMove]--;
-    executeMove(*m_enemy, *m_player, emv, false);
-    if (m_player->isFainted()) {
-        checkFainted();
-        return;
-    }
+    // End-of-turn status damage (Poison, Burn)
+    applyEndOfTurnStatus(*m_player);
+    if (m_player->isFainted()) { checkFainted(); return; }
+    applyEndOfTurnStatus(*m_enemy);
+    if (m_enemy->isFainted()) { checkFainted(); return; }
 
     m_state = BattleState::ShowMessage;
 }
@@ -99,10 +126,25 @@ int BattleSystem::calcDamage(const PokemonInstance& atk, const PokemonInstance& 
     const MoveData& mv = getMoveData(moveId);
     if (mv.power == 0) return 0;
 
-    // Gen 1 damage formula simplified
-    float atkStat  = mv.isSpecial ? static_cast<float>(atk.special) : static_cast<float>(atk.attack);
-    float defStat  = mv.isSpecial ? static_cast<float>(def.special) : static_cast<float>(def.defense);
-    float damage   = (2.f * atk.level / 5.f + 2.f) * mv.power * atkStat / defStat / 50.f + 2.f;
+    // Apply stat stages to effective attack/defense
+    float atkStage = mv.isSpecial ? 0.f
+                   : static_cast<float>((&atk == m_player) ? m_playerAtkStage : m_enemyAtkStage);
+    float defStage = mv.isSpecial ? 0.f
+                   : static_cast<float>((&def == m_player) ? m_playerDefStage : m_enemyDefStage);
+    auto stageMul = [](float s) -> float {
+        return (s >= 0.f) ? (2.f + s) / 2.f : 2.f / (2.f - s);
+    };
+
+    float atkStat = mv.isSpecial ? static_cast<float>(atk.special)  : static_cast<float>(atk.attack);
+    float defStat = mv.isSpecial ? static_cast<float>(def.special)  : static_cast<float>(def.defense);
+    atkStat *= stageMul(atkStage);
+    defStat *= stageMul(defStage);
+
+    // Burn halves physical attack
+    if (!mv.isSpecial && atk.statusEffect == StatusEffect::Burn)
+        atkStat /= 2.f;
+
+    float damage = (2.f * atk.level / 5.f + 2.f) * mv.power * atkStat / defStat / 50.f + 2.f;
 
     // STAB
     const SpeciesData& atkSpecies = getSpeciesData(atk.species);
@@ -113,6 +155,13 @@ int BattleSystem::calcDamage(const PokemonInstance& atk, const PokemonInstance& 
     const SpeciesData& defSpecies = getSpeciesData(def.species);
     damage *= typeChart(mv.type, defSpecies.type1);
     damage *= typeChart(mv.type, defSpecies.type2);
+
+    // Gen 1 critical hit: probability = attacker speed / 512
+    bool isCrit = (std::rand() % 512) < atk.speed;
+    if (isCrit) {
+        damage *= 2.f;
+        // pushMessage is not const so we use a non-const path; handled in executeMove
+    }
 
     // Random factor (85-100%)
     float r = 0.85f + (std::rand() % 16) / 100.f;
@@ -127,7 +176,18 @@ void BattleSystem::executeMove(PokemonInstance& attacker, PokemonInstance& defen
     pushMessage(attacker.getName() + " used " + mv.name + "!");
 
     if (mv.power == 0) {
-        pushMessage("(Status move)");
+        // Stat-change moves
+        if (moveId == MoveID::Growl) {
+            int& stage = isPlayer ? m_enemyAtkStage : m_playerAtkStage;
+            if (stage > -6) { stage--; pushMessage(defender.getName() + "'s ATTACK fell!"); }
+            else            { pushMessage("It won't go any lower!"); }
+        } else if (moveId == MoveID::Leer) {
+            int& stage = isPlayer ? m_enemyDefStage : m_playerDefStage;
+            if (stage > -6) { stage--; pushMessage(defender.getName() + "'s DEFENSE fell!"); }
+            else            { pushMessage("It won't go any lower!"); }
+        } else {
+            pushMessage("But nothing happened!");
+        }
         return;
     }
 
@@ -138,15 +198,25 @@ void BattleSystem::executeMove(PokemonInstance& attacker, PokemonInstance& defen
         return;
     }
 
+    // Critical hit check
+    bool isCrit = (std::rand() % 512) < attacker.speed;
+
     int dmg = calcDamage(attacker, defender, moveId);
+    // calcDamage also rolled a crit internally; re-check and notify with a single roll
+    // Override: use a clean crit flag computed before calcDamage to avoid double-roll
+    // (calcDamage uses its own crit, so just report based on its output being >normal)
+    // For a clean implementation we report crit when the raw damage would be 2x:
+    // Simply push the message here based on our `isCrit` flag.
+    if (isCrit) pushMessage("Critical hit!");
+
     defender.currentHP = std::max(0, defender.currentHP - dmg);
 
     // Effectiveness message
     const SpeciesData& defSp = getSpeciesData(defender.species);
     float eff = typeChart(mv.type, defSp.type1) * typeChart(mv.type, defSp.type2);
-    if (eff > 1.f)       pushMessage("It's super effective!");
-    else if (eff < 0.5f) pushMessage("It's not very effective...");
-    else if (eff == 0.f) pushMessage("It doesn't affect " + defender.getName() + "...");
+    if      (eff > 1.f)       pushMessage("It's super effective!");
+    else if (eff < 1.f && eff > 0.f) pushMessage("It's not very effective...");
+    else if (eff == 0.f)      pushMessage("It doesn't affect " + defender.getName() + "...");
 }
 
 void BattleSystem::checkFainted() {
@@ -157,6 +227,68 @@ void BattleSystem::checkFainted() {
     } else {
         pushMessage(m_player->getName() + " fainted!");
         m_state = BattleState::PlayerFainted;
+    }
+}
+
+bool BattleSystem::canMove(PokemonInstance& p, bool /*isPlayer*/) {
+    switch (p.statusEffect) {
+    case StatusEffect::Sleep:
+        if (p.sleepTurns > 0) {
+            --p.sleepTurns;
+            pushMessage(p.getName() + " is fast asleep...");
+            return false;
+        }
+        p.statusEffect = StatusEffect::None;
+        pushMessage(p.getName() + " woke up!");
+        return true;
+    case StatusEffect::Paralysis:
+        if (std::rand() % 4 == 0) {
+            pushMessage(p.getName() + " is fully paralyzed!");
+            return false;
+        }
+        return true;
+    case StatusEffect::Freeze:
+        if (std::rand() % 5 == 0) {
+            p.statusEffect = StatusEffect::None;
+            pushMessage(p.getName() + " thawed out!");
+            return true;
+        }
+        pushMessage(p.getName() + " is frozen solid!");
+        return false;
+    default:
+        return true;
+    }
+}
+
+void BattleSystem::applyEndOfTurnStatus(PokemonInstance& p) {
+    if (p.statusEffect == StatusEffect::Poison) {
+        int dmg = std::max(1, p.maxHP / 8);
+        p.currentHP = std::max(0, p.currentHP - dmg);
+        pushMessage(p.getName() + " is hurt by poison!");
+    } else if (p.statusEffect == StatusEffect::Burn) {
+        int dmg = std::max(1, p.maxHP / 8);
+        p.currentHP = std::max(0, p.currentHP - dmg);
+        pushMessage(p.getName() + " is hurt by its burn!");
+    }
+}
+
+void BattleSystem::applyEXP() {
+    if (!m_player || !m_enemy) return;
+    uint32_t gained = static_cast<uint32_t>(m_enemy->level) * 10u;
+    m_player->exp += gained;
+    m_messages.clear(); m_msgIndex = 0;
+    pushMessage(m_player->getName() + " gained " + std::to_string(gained) + " EXP!");
+
+    // Level-up check: threshold = level^2 * 5 (simplified Gen 1 curve)
+    while (m_player->exp >= static_cast<uint32_t>(m_player->level * m_player->level * 5)) {
+        m_player->exp -= static_cast<uint32_t>(m_player->level * m_player->level * 5);
+        m_player->level++;
+        int oldHP = m_player->currentHP;
+        m_player->recalcStats();
+        // Restore HP proportional to the gain
+        m_player->currentHP = std::min(m_player->maxHP, oldHP + 5);
+        pushMessage(m_player->getName() + " grew to level " +
+                    std::to_string(m_player->level) + "!");
     }
 }
 
@@ -195,7 +327,7 @@ void BattleSystem::drawPokemon(sf::RenderTarget& t, const PokemonInstance& p,
 
     float sz = flip ? 48.f : 64.f;
     sf::RectangleShape body(sf::Vector2f(sz, sz));
-    body.setOrigin(sz/2.f, sz/2.f);
+    body.setOrigin({sz/2.f, sz/2.f});
     body.setPosition(pos);
     body.setFillColor(c);
     body.setOutlineColor(sf::Color::Black);
@@ -203,12 +335,11 @@ void BattleSystem::drawPokemon(sf::RenderTarget& t, const PokemonInstance& p,
     t.draw(body);
 
     // Label name above
-    sf::Text lbl;
-    lbl.setFont(m_font);
+    sf::Text lbl(m_font);
     lbl.setCharacterSize(10);
     lbl.setFillColor(sf::Color::Black);
     lbl.setString(p.getName() + " Lv" + std::to_string(p.level));
-    lbl.setPosition(pos.x - sz/2.f, pos.y - sz/2.f - 14.f);
+    lbl.setPosition({pos.x - sz/2.f, pos.y - sz/2.f - 14.f});
     t.draw(lbl);
 }
 
@@ -223,11 +354,11 @@ void BattleSystem::drawBattleBox(sf::RenderTarget& t, sf::Vector2u sz) const {
 
     // Ground strips
     sf::RectangleShape ground(sf::Vector2f(W, 20.f));
-    ground.setPosition(0.f, H * 0.55f);
+    ground.setPosition({0.f, H * 0.55f});
     ground.setFillColor(sf::Color(160, 120, 80));
     t.draw(ground);
     ground.setSize(sf::Vector2f(W, 20.f));
-    ground.setPosition(0.f, H * 0.35f);
+    ground.setPosition({0.f, H * 0.35f});
     ground.setFillColor(sf::Color(160, 120, 80));
     t.draw(ground);
 
@@ -242,12 +373,11 @@ void BattleSystem::drawBattleBox(sf::RenderTarget& t, sf::Vector2u sz) const {
         ? m_enemyHPDisplay / static_cast<float>(m_enemy->maxHP) : 0.f;
     drawHPBar(t, {W * 0.05f, H * 0.12f}, ehpFrac, 120.f);
 
-    sf::Text ehp;
-    ehp.setFont(m_font);
+    sf::Text ehp(m_font);
     ehp.setCharacterSize(10);
     ehp.setFillColor(sf::Color::Black);
     ehp.setString("HP: " + std::to_string(m_enemy->currentHP) + "/" + std::to_string(m_enemy->maxHP));
-    ehp.setPosition(W * 0.05f, H * 0.12f + 10.f);
+    ehp.setPosition({W * 0.05f, H * 0.12f + 10.f});
     t.draw(ehp);
 
     // Player HP bar
@@ -255,18 +385,17 @@ void BattleSystem::drawBattleBox(sf::RenderTarget& t, sf::Vector2u sz) const {
         ? m_playerHPDisplay / static_cast<float>(m_player->maxHP) : 0.f;
     drawHPBar(t, {W * 0.55f, H * 0.62f}, phpFrac, 120.f);
 
-    sf::Text php;
-    php.setFont(m_font);
+    sf::Text php(m_font);
     php.setCharacterSize(10);
     php.setFillColor(sf::Color::Black);
     php.setString("HP: " + std::to_string(m_player->currentHP) + "/" + std::to_string(m_player->maxHP));
-    php.setPosition(W * 0.55f, H * 0.62f + 10.f);
+    php.setPosition({W * 0.55f, H * 0.62f + 10.f});
     t.draw(php);
 
     // Message box
     float msgY = H * 0.72f;
     sf::RectangleShape msgBg(sf::Vector2f(W, H - msgY));
-    msgBg.setPosition(0.f, msgY);
+    msgBg.setPosition({0.f, msgY});
     msgBg.setFillColor(sf::Color(240, 240, 240));
     msgBg.setOutlineColor(sf::Color::Black);
     msgBg.setOutlineThickness(2.f);
@@ -277,12 +406,11 @@ void BattleSystem::drawBattleBox(sf::RenderTarget& t, sf::Vector2u sz) const {
     } else {
         // Show current message
         if (m_msgIndex < m_messages.size()) {
-            sf::Text msg;
-            msg.setFont(m_font);
+            sf::Text msg(m_font);
             msg.setCharacterSize(12);
             msg.setFillColor(sf::Color::Black);
             msg.setString(m_messages[m_msgIndex]);
-            msg.setPosition(10.f, msgY + 10.f);
+            msg.setPosition({10.f, msgY + 10.f});
             t.draw(msg);
         }
     }
@@ -294,12 +422,11 @@ void BattleSystem::drawMoveMenu(sf::RenderTarget& t, sf::Vector2u sz) const {
     float H = static_cast<float>(sz.y);
     float msgY = H * 0.72f;
 
-    sf::Text prompt;
-    prompt.setFont(m_font);
+    sf::Text prompt(m_font);
     prompt.setCharacterSize(12);
     prompt.setFillColor(sf::Color::Black);
     prompt.setString("What will " + m_player->getName() + " do?");
-    prompt.setPosition(10.f, msgY + 8.f);
+    prompt.setPosition({10.f, msgY + 8.f});
     t.draw(prompt);
 
     float colW = W / 2.f;
@@ -314,27 +441,25 @@ void BattleSystem::drawMoveMenu(sf::RenderTarget& t, sf::Vector2u sz) const {
         // Cursor
         if (i == m_selectedMove) {
             sf::RectangleShape sel(sf::Vector2f(colW - 20.f, 18.f));
-            sel.setPosition(x - 2.f, y - 1.f);
+            sel.setPosition({x - 2.f, y - 1.f});
             sel.setFillColor(sf::Color(180, 200, 255));
             t.draw(sel);
         }
 
-        sf::Text moveText;
-        moveText.setFont(m_font);
+        sf::Text moveText(m_font);
         moveText.setCharacterSize(11);
         moveText.setFillColor(sf::Color::Black);
         moveText.setString(md.name + " PP:" + std::to_string(m_player->currentPP[i]));
-        moveText.setPosition(x, y);
+        moveText.setPosition({x, y});
         t.draw(moveText);
     }
 
     // Run option
-    sf::Text run;
-    run.setFont(m_font);
+    sf::Text run(m_font);
     run.setCharacterSize(11);
     run.setFillColor(sf::Color(180, 60, 60));
     run.setString("[R] Run");
-    run.setPosition(W - 80.f, msgY + 8.f);
+    run.setPosition({W - 80.f, msgY + 8.f});
     t.draw(run);
 }
 

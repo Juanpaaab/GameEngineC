@@ -20,6 +20,10 @@ void SceneManager::update(float dt) {
         if (it != m_factories.end()) {
             m_current = it->second(m_game);
             m_current->onEnter();
+        } else {
+            // A scene was requested that was never registered — fail loudly.
+            std::fprintf(stderr, "[SceneManager] ERROR: unknown scene \"%s\". "
+                "Did you forget to call registerScene()?\n", m_pending.c_str());
         }
         m_pending.clear();
     }

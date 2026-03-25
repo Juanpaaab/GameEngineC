@@ -4,8 +4,8 @@
 namespace engine {
 
 Camera::Camera(float width, float height) {
-    m_view.setSize(width, height);
-    m_view.setCenter(width / 2.f, height / 2.f);
+    m_view.setSize({width, height});
+    m_view.setCenter({width / 2.f, height / 2.f});
 }
 
 void Camera::setPosition(sf::Vector2f pos) {
@@ -23,7 +23,7 @@ void Camera::setZoom(float zoom) {
 }
 
 void Camera::setRotation(float degrees) {
-    m_view.setRotation(degrees);
+    m_view.setRotation(sf::degrees(degrees));
 }
 
 void Camera::follow(sf::Vector2f target, float lerpFactor) {

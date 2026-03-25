@@ -12,9 +12,18 @@ BattleScene::BattleScene(engine::Game& game,
 {}
 
 void BattleScene::onEnter() {
-    m_fontLoaded = m_font.loadFromFile("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf");
+    // Try common font paths in order: Windows, Linux (multiple distros), macOS
+    auto tryLoad = [&](const char* path) { return m_font.openFromFile(path); };
+    m_fontLoaded =
+        tryLoad("C:/Windows/Fonts/arial.ttf")   ||
+        tryLoad("C:/Windows/Fonts/calibri.ttf") ||
+        tryLoad("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf") ||
+        tryLoad("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf") ||
+        tryLoad("/usr/share/fonts/TTF/DejaVuSans.ttf")             ||
+        tryLoad("/Library/Fonts/Arial.ttf");
+
     if (!m_fontLoaded)
-        m_fontLoaded = m_font.loadFromFile("/usr/share/fonts/TTF/DejaVuSans.ttf");
+        std::fprintf(stderr, "[BattleScene] WARNING: could not load any system font.\n");
 
     if (m_fontLoaded) {
         m_battle = std::make_unique<BattleSystem>(m_font);
@@ -38,23 +47,23 @@ void BattleScene::update(float dt) {
 
     if (state == BattleState::PlayerTurn) {
         // Navigate move selection
-        if (input.isKeyPressed(sf::Keyboard::Up))    m_selectedMove = (m_selectedMove - 2 + 4) % 4;
-        if (input.isKeyPressed(sf::Keyboard::Down))  m_selectedMove = (m_selectedMove + 2) % 4;
-        if (input.isKeyPressed(sf::Keyboard::Left))  m_selectedMove = (m_selectedMove - 1 + 4) % 4;
-        if (input.isKeyPressed(sf::Keyboard::Right)) m_selectedMove = (m_selectedMove + 1) % 4;
+        if (input.isKeyPressed(sf::Keyboard::Key::Up))    m_selectedMove = (m_selectedMove - 2 + 4) % 4;
+        if (input.isKeyPressed(sf::Keyboard::Key::Down))  m_selectedMove = (m_selectedMove + 2) % 4;
+        if (input.isKeyPressed(sf::Keyboard::Key::Left))  m_selectedMove = (m_selectedMove - 1 + 4) % 4;
+        if (input.isKeyPressed(sf::Keyboard::Key::Right)) m_selectedMove = (m_selectedMove + 1) % 4;
 
-        if (input.isKeyPressed(sf::Keyboard::Z) ||
-            input.isKeyPressed(sf::Keyboard::Return))
+        if (input.isKeyPressed(sf::Keyboard::Key::Z) ||
+            input.isKeyPressed(sf::Keyboard::Key::Enter))
             m_battle->handleInput(m_selectedMove);
 
-        if (input.isKeyPressed(sf::Keyboard::R) ||
-            input.isKeyPressed(sf::Keyboard::Escape))
+        if (input.isKeyPressed(sf::Keyboard::Key::R) ||
+            input.isKeyPressed(sf::Keyboard::Key::Escape))
             m_battle->handleInput(4); // run
     } else {
         // Advance message on Z/Enter/Space
-        if (input.isKeyPressed(sf::Keyboard::Z)     ||
-            input.isKeyPressed(sf::Keyboard::Return) ||
-            input.isKeyPressed(sf::Keyboard::Space))
+        if (input.isKeyPressed(sf::Keyboard::Key::Z)     ||
+            input.isKeyPressed(sf::Keyboard::Key::Enter) ||
+            input.isKeyPressed(sf::Keyboard::Key::Space))
             m_battle->handleInput(0);
     }
 }

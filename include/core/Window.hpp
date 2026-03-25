@@ -1,5 +1,6 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include <optional>
 #include <string>
 
 namespace engine {
@@ -35,8 +36,8 @@ public:
     sf::RenderWindow&       getRenderWindow()       { return m_window; }
     const sf::RenderWindow& getRenderWindow() const { return m_window; }
 
-    // Last polled event (call pollEvents first)
-    bool pollEvent(sf::Event& event);
+    // Returns the next event if available, or std::nullopt when no events remain.
+    std::optional<sf::Event> pollEvent();
 
 private:
     WindowConfig     m_config;

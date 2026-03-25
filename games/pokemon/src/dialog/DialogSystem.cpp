@@ -67,30 +67,28 @@ void DialogSystem::draw(sf::RenderTarget& target, sf::Vector2u screenSize) const
 
     // Background
     sf::RectangleShape bg(sf::Vector2f(static_cast<float>(screenSize.x), boxH));
-    bg.setPosition(0.f, boxY);
+    bg.setPosition({0.f, boxY});
     bg.setFillColor(sf::Color(240, 240, 240));
     bg.setOutlineColor(sf::Color::Black);
     bg.setOutlineThickness(2.f);
     target.draw(bg);
 
     // Text
-    sf::Text text;
-    text.setFont(m_font);
+    sf::Text text(m_font);
     text.setCharacterSize(12);
     text.setFillColor(sf::Color::Black);
     text.setString(m_displayed);
-    text.setPosition(pad, boxY + pad);
+    text.setPosition({pad, boxY + pad});
     target.draw(text);
 
     // "Press A" arrow indicator when done
     if (m_done) {
-        sf::Text arrow;
-        arrow.setFont(m_font);
+        sf::Text arrow(m_font);
         arrow.setCharacterSize(12);
         arrow.setFillColor(sf::Color::Black);
         arrow.setString(">");
-        arrow.setPosition(static_cast<float>(screenSize.x) - 20.f,
-                          static_cast<float>(screenSize.y) - 20.f);
+        arrow.setPosition({static_cast<float>(screenSize.x) - 20.f,
+                          static_cast<float>(screenSize.y) - 20.f});
         target.draw(arrow);
     }
 }

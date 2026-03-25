@@ -32,11 +32,10 @@ void Game::quit() {
 
 void Game::processEvents() {
     m_input.beginFrame();
-    sf::Event event;
-    while (m_window.pollEvent(event)) {
-        if (event.type == sf::Event::Closed)
+    while (const auto event = m_window.pollEvent()) {
+        if (event->is<sf::Event::Closed>())
             quit();
-        m_input.handleEvent(event);
+        m_input.handleEvent(*event);
     }
 }
 

@@ -19,7 +19,11 @@ public:
     void render() override;
 
 private:
+    // NPC descriptor: tile position and dialog text
+    struct NpcData { sf::Vector2i tile; std::string dialog; };
+
     void buildPalletTown();
+    void buildRoute1();
     void tryInteract();
     void triggerEncounter();
 
@@ -27,6 +31,9 @@ private:
     Player       m_player;
     sf::Font     m_font;
     bool         m_fontLoaded = false;
+
+    int                  m_currentMapId = 0; // 0 = Pallet Town, 1 = Route 1
+    std::vector<NpcData> m_npcs;
 
     std::unique_ptr<DialogSystem> m_dialog;
 

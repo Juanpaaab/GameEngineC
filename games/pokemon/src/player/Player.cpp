@@ -52,13 +52,13 @@ void Player::update(float dt, const TileMap& map) {
     }
 
     sf::Vector2i delta = {0, 0};
-    if      (sf::Keyboard::isKeyPressed(sf::Keyboard::Up)    || sf::Keyboard::isKeyPressed(sf::Keyboard::W))
+    if      (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Up)    || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::W))
     { m_dir = Direction::Up;    delta = { 0,-1}; }
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down)  || sf::Keyboard::isKeyPressed(sf::Keyboard::S))
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Down)  || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::S))
     { m_dir = Direction::Down;  delta = { 0, 1}; }
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left)  || sf::Keyboard::isKeyPressed(sf::Keyboard::A))
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left)  || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A))
     { m_dir = Direction::Left;  delta = {-1, 0}; }
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::D))
+    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) || sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D))
     { m_dir = Direction::Right; delta = { 1, 0}; }
 
     if (delta != sf::Vector2i{0,0}) {

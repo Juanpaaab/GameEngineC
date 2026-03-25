@@ -16,7 +16,7 @@ public:
 
     sf::Vector2f getPosition()    const { return m_view.getCenter(); }
     float        getZoom()        const { return m_zoom; }
-    float        getRotation()    const { return m_view.getRotation(); }
+    float        getRotation()    const { return m_view.getRotation().asDegrees(); }
     const sf::View& getView()     const { return m_view; }
 
     // Follow a target smoothly

@@ -4,6 +4,8 @@ namespace engine {
 
 void Time::update() {
     m_deltaTime = m_clock.restart().asSeconds();
+    // Clamp to 50 ms so a frame hitch never explodes physics / movement.
+    if (m_deltaTime > 0.05f) m_deltaTime = 0.05f;
     m_totalTime += m_deltaTime;
 
     ++m_frameCount;

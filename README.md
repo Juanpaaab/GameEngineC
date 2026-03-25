@@ -374,3 +374,6 @@ The following features are planned but not yet implemented:
 ## License
 
 This project is for educational purposes. Pokémon is a registered trademark of The Pokémon Company / Nintendo. This is an unofficial fan-made clone with no affiliation.
+
+
+Set-Location "c:\Secundarios\Gaming dev\GameEngineC" ; $env:Path += ";C:\msys64\mingw64\bin" ; Start-Process -FilePath ".\build\games\pokemon\pokemon.exe" ; Start-Sleep -Milliseconds 900 ; Get-Process pokemon -ErrorAction SilentlyContinue | Select-Object ProcessName,Id

@@ -1,7 +1,66 @@
+# ─── Build directories ────────────────────────────────────────────────────────
 build/
-.cache/
+build-*/
+dist/
+out/
+
+# ─── CMake generated ──────────────────────────────────────────────────────────
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+CPackConfig.cmake
+CPackSourceConfig.cmake
+install_manifest.txt
 compile_commands.json
+.cmake/
+
+# ─── Compiled objects & libraries ─────────────────────────────────────────────
 *.o
+*.obj
 *.a
+*.lib
 *.so
+*.so.*
+*.dylib
+*.dll
+*.exe
 *.out
+*.pdb
+*.ilk
+*.exp
+
+# ─── VS Code ──────────────────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+.vscode/c_cpp_properties.json
+# Keep: .vscode/tasks.json (checked in intentionally)
+
+# ─── CLion / JetBrains ────────────────────────────────────────────────────────
+.idea/
+cmake-build-*/
+
+# ─── Visual Studio ────────────────────────────────────────────────────────────
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.suo
+*.user
+.vs/
+x64/
+x86/
+
+# ─── Cache / IntelliSense ─────────────────────────────────────────────────────
+.cache/
+.ccls-cache/
+.clangd/
+
+# ─── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+__MACOSX/
+
+# ─── Windows ──────────────────────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+

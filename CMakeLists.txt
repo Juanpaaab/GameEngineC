@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+option(ENGINE_WINDOWS_PORTABLE "Enable portable bundle targets for Windows/MSYS2" ON)
+
 # Find SFML
 find_package(SFML 3 COMPONENTS Graphics Window System Audio REQUIRED)
 
@@ -46,6 +48,35 @@ target_link_libraries(demo PRIVATE engine2d)
 
 # Pokemon game
 add_subdirectory(games/pokemon)
+
+if(WIN32 AND MINGW AND ENGINE_WINDOWS_PORTABLE)
+    set(PORTABLE_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyRuntimeDeps.cmake")
+    get_filename_component(MINGW_TOOLCHAIN_BIN_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+
+    function(create_portable_target executable_target portable_name)
+        set(portable_dir "${CMAKE_BINARY_DIR}/portable/${portable_name}")
+
+        add_custom_target(portable_${portable_name}
+            COMMAND ${CMAKE_COMMAND} -E remove_directory "${portable_dir}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory "${portable_dir}"
+            COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:${executable_target}>" "${portable_dir}/"
+            COMMAND ${CMAKE_COMMAND}
+                -Dexe=$<TARGET_FILE:${executable_target}>
+                -Ddest=${portable_dir}
+                -Dtoolchain_bin=${MINGW_TOOLCHAIN_BIN_DIR}
+                -P "${PORTABLE_SCRIPT}"
+            DEPENDS ${executable_target}
+            COMMENT "Building portable bundle for ${portable_name}"
+            VERBATIM
+        )
+    endfunction()
+
+    create_portable_target(demo demo)
+
+    if(TARGET pokemon)
+        create_portable_target(pokemon pokemon)
+    endif()
+endif()
 
 # Install rules
 install(TARGETS engine2d

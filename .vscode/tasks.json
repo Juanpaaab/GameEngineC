@@ -1,0 +1,66 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Configure (MSYS2 MinGW64 Release)",
+			"type": "shell",
+			"command": "C:/msys64/msys2_shell.cmd",
+			"args": [
+				"-defterm",
+				"-here",
+				"-no-start",
+				"-mingw64",
+				"-c",
+				"cmake -S . -B build-mingw -G Ninja -DCMAKE_BUILD_TYPE=Release"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Build portable pokemon",
+			"type": "shell",
+			"command": "C:/msys64/msys2_shell.cmd",
+			"args": [
+				"-defterm",
+				"-here",
+				"-no-start",
+				"-mingw64",
+				"-c",
+				"cmake --build build-mingw --target portable_pokemon --config Release"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"dependsOn": "Configure (MSYS2 MinGW64 Release)"
+		},
+		{
+			"label": "Build portable demo",
+			"type": "shell",
+			"command": "C:/msys64/msys2_shell.cmd",
+			"args": [
+				"-defterm",
+				"-here",
+				"-no-start",
+				"-mingw64",
+				"-c",
+				"cmake --build build-mingw --target portable_demo --config Release"
+			],
+			"options": {
+				"cwd": "${workspaceFolder}"
+			},
+			"problemMatcher": [
+				"$gcc"
+			],
+			"dependsOn": "Configure (MSYS2 MinGW64 Release)"
+		}
+	]
+}

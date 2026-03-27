@@ -138,6 +138,27 @@ cmake --build build --config Release
 ./build/games/pokemon/PokemonClone
 ```
 
+### Portable `.exe` on Windows (MSYS2)
+
+Use the **MSYS2 MinGW64 shell** (not UCRT/Clang unless you build everything with that same toolchain):
+
+```bash
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-sfml
+
+cmake -S . -B build-mingw -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build build-mingw --target portable_demo
+cmake --build build-mingw --target portable_pokemon
+```
+
+Portable bundles are generated in:
+
+```text
+build-mingw/portable/demo
+build-mingw/portable/pokemon
+```
+
+Each folder includes the `.exe` plus required runtime DLLs, so you can copy that folder to another Windows machine and run it directly.
+
 ---
 
 ## Project Structure

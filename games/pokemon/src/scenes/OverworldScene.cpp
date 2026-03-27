@@ -31,7 +31,8 @@ void OverworldScene::onEnter() {
     buildPalletTown();
 
     m_player.setPosition(5, 9);
-    // Party is managed by PokemonGame; no need to re-add pokemon here
+    // Cargar spritesheet del jugador (Verde Hoja: 4 dir x 3 frames, TILE_SIZE x TILE_SIZE c/u)
+    m_player.loadTexture("assets/player/player.png");
 
     if (m_dialog) {
         m_dialog->showQueue({

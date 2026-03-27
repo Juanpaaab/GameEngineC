@@ -36,6 +36,7 @@ public:
     bool playerWon()  const { return m_playerWon; }
 
     void handleInput(int moveIndex);  // 0-3 for moves, 4 for run
+    void setSelectedMove(int i) { m_selectedMove = i; }
     void update(float dt);
     void draw(sf::RenderTarget& target, sf::Vector2u screenSize) const;
 
@@ -72,9 +73,17 @@ private:
     int m_playerAtkStage = 0, m_playerDefStage = 0;
     int m_enemyAtkStage  = 0, m_enemyDefStage  = 0;
 
+    // Sprites: front (enemy) and back (player)
+    sf::Texture m_playerTex;
+    sf::Texture m_enemyTex;
+    bool        m_playerTexLoaded = false;
+    bool        m_enemyTexLoaded  = false;
+    void loadSprites();
+
     void drawHPBar(sf::RenderTarget& t, sf::Vector2f pos, float fraction, float w) const;
+    // tex: nullptr falls back to colored placeholder rectangle
     void drawPokemon(sf::RenderTarget& t, const PokemonInstance& p,
-                     sf::Vector2f pos, bool flip) const;
+                     sf::Vector2f pos, bool smallSprite, const sf::Texture* tex) const;
     void drawMoveMenu(sf::RenderTarget& t, sf::Vector2u sz) const;
     void drawBattleBox(sf::RenderTarget& t, sf::Vector2u sz) const;
 };

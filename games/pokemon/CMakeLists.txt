@@ -30,3 +30,11 @@ target_include_directories(pokemon
 )
 
 target_link_libraries(pokemon PRIVATE engine2d)
+
+# Copiar assets junto al ejecutable en cada build (para desarrollo en IDE)
+add_custom_command(TARGET pokemon POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_CURRENT_SOURCE_DIR}/assets"
+        "$<TARGET_FILE_DIR:pokemon>/assets"
+    COMMENT "Copying pokemon assets to build dir"
+)

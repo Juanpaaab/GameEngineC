@@ -10,6 +10,10 @@ Player::Player() {
     m_prevPixel   = m_pixelPos;
 }
 
+void Player::loadTexture(const std::string& path) {
+    m_textureLoaded = m_texture.loadFromFile(path);
+}
+
 void Player::setPosition(int tx, int ty) {
     m_tilePos     = {tx, ty};
     m_pixelPos    = sf::Vector2f(static_cast<float>(tx * TILE_SIZE),
@@ -38,6 +42,7 @@ void Player::update(float dt, const TileMap& map) {
             m_moveProgress = 1.f;
             m_moving       = false;
             m_pixelPos     = m_targetPixel;
+            m_walkFrame    = 0;
 
             TileID tile = map.get(m_tilePos.x, m_tilePos.y);
             if (tileHasEncounter(tile)) {
@@ -46,7 +51,8 @@ void Player::update(float dt, const TileMap& map) {
                     m_justEnteredEncounter = true;
             }
         } else {
-            m_pixelPos = m_prevPixel + (m_targetPixel - m_prevPixel) * m_moveProgress;
+            m_pixelPos  = m_prevPixel + (m_targetPixel - m_prevPixel) * m_moveProgress;
+            m_walkFrame = m_moveProgress < 0.5f ? 1 : 2;
         }
         return;
     }
@@ -75,6 +81,21 @@ void Player::update(float dt, const TileMap& map) {
 }
 
 void Player::draw(sf::RenderTarget& target) const {
+    if (m_textureLoaded) {
+        // Spritesheet: fila = dirección (Down=0, Left=1, Right=2, Up=3)
+        //              col  = frame (0=stop, 1=paso A, 2=paso B)
+        int row = static_cast<int>(m_dir);
+        sf::Sprite spr(m_texture);
+        spr.setTextureRect(sf::IntRect(
+            {m_walkFrame * TILE_SIZE, row * TILE_SIZE},
+            {TILE_SIZE, TILE_SIZE}
+        ));
+        spr.setPosition(m_pixelPos);
+        target.draw(spr);
+        return;
+    }
+
+    // Fallback: formas de color
     sf::RectangleShape body(sf::Vector2f(TILE_SIZE - 2.f, TILE_SIZE - 2.f));
     body.setPosition(m_pixelPos + sf::Vector2f(1.f, 1.f));
     body.setFillColor(sf::Color(230, 100, 100));

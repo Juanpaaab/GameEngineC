@@ -38,6 +38,13 @@ void BattleScene::update(float dt) {
     m_battle->update(dt);
 
     if (m_battle->isFinished()) {
+        if (!m_battle->playerWon()) {
+            // White out: restaurar HP del pokemon (comportamiento Gen 1)
+            if (m_playerPokemon) {
+                m_playerPokemon->currentHP    = m_playerPokemon->maxHP;
+                m_playerPokemon->statusEffect = StatusEffect::None;
+            }
+        }
         m_game.getSceneManager().switchTo("overworld");
         return;
     }
@@ -51,6 +58,9 @@ void BattleScene::update(float dt) {
         if (input.isKeyPressed(sf::Keyboard::Key::Down))  m_selectedMove = (m_selectedMove + 2) % 4;
         if (input.isKeyPressed(sf::Keyboard::Key::Left))  m_selectedMove = (m_selectedMove - 1 + 4) % 4;
         if (input.isKeyPressed(sf::Keyboard::Key::Right)) m_selectedMove = (m_selectedMove + 1) % 4;
+
+        // Sync cursor with BattleSystem so the highlight renders correctly
+        m_battle->setSelectedMove(m_selectedMove);
 
         if (input.isKeyPressed(sf::Keyboard::Key::Z) ||
             input.isKeyPressed(sf::Keyboard::Key::Enter))

@@ -3,6 +3,7 @@
 #include "data/PokemonData.hpp"
 #include <SFML/Graphics.hpp>
 #include <SFML/Window/Keyboard.hpp>
+#include <string>
 #include <vector>
 #include <array>
 
@@ -36,6 +37,11 @@ public:
 
     void addToParty(Species s, uint8_t level, const std::array<MoveID, PokemonInstance::MAX_MOVES>& moves);
 
+    // Carga un spritesheet del personaje.
+    // Formato esperado: 4 filas (Down/Left/Right/Up) x 3 columnas (stand/walk1/walk2),
+    // cada frame de TILE_SIZE x TILE_SIZE píxeles.
+    void loadTexture(const std::string& path);
+
     // Steps taken (for encounter rate calculation)
     int steps = 0;
 
@@ -50,6 +56,10 @@ private:
     static constexpr float MOVE_SPEED = 6.f; // tiles per second
 
     bool m_justEnteredEncounter = false;
+
+    sf::Texture m_texture;
+    bool        m_textureLoaded = false;
+    int         m_walkFrame     = 0;  // 0=stand, 1=walkA, 2=walkB
 
     sf::Vector2i m_dirDelta() const;
 };

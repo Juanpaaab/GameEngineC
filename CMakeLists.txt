@@ -74,7 +74,24 @@ if(WIN32 AND MINGW AND ENGINE_WINDOWS_PORTABLE)
     create_portable_target(demo demo)
 
     if(TARGET pokemon)
-        create_portable_target(pokemon pokemon)
+        # pokemon tiene assets propios; se construye el portable manualmente
+        # para agregar el paso de copia de assets
+        set(_poke_dir "${CMAKE_BINARY_DIR}/portable/pokemon")
+        set(_poke_assets "${CMAKE_CURRENT_SOURCE_DIR}/games/pokemon/assets")
+        add_custom_target(portable_pokemon
+            COMMAND ${CMAKE_COMMAND} -E remove_directory "${_poke_dir}"
+            COMMAND ${CMAKE_COMMAND} -E make_directory   "${_poke_dir}"
+            COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:pokemon>" "${_poke_dir}/"
+            COMMAND ${CMAKE_COMMAND}
+                -Dexe=$<TARGET_FILE:pokemon>
+                -Ddest=${_poke_dir}
+                -Dtoolchain_bin=${MINGW_TOOLCHAIN_BIN_DIR}
+                -P "${PORTABLE_SCRIPT}"
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${_poke_assets}" "${_poke_dir}/assets"
+            DEPENDS pokemon
+            COMMENT "Building portable bundle for pokemon (+ assets)"
+            VERBATIM
+        )
     endif()
 endif()
 

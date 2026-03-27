@@ -1,5 +1,6 @@
 #include "battle/BattleSystem.hpp"
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <sstream>
 
@@ -25,6 +26,7 @@ void BattleSystem::start(PokemonInstance* player, PokemonInstance* enemy) {
 
     pushMessage("Wild " + m_enemy->getName() + " appeared!");
     pushMessage("Go! " + m_player->getName() + "!");
+    loadSprites();
 }
 
 void BattleSystem::pushMessage(const std::string& msg) {
@@ -54,9 +56,12 @@ void BattleSystem::nextMessage() {
 void BattleSystem::handleInput(int moveIndex) {
     if (m_state != BattleState::PlayerTurn) {
         // Advance message on any key
-        if (m_state == BattleState::ShowMessage ||
-            m_state == BattleState::Intro       ||
-            m_state == BattleState::Victory     ||
+        if (m_state == BattleState::ShowMessage  ||
+            m_state == BattleState::Intro        ||
+            m_state == BattleState::EnemyFainted ||
+            m_state == BattleState::PlayerFainted||
+            m_state == BattleState::Flee         ||
+            m_state == BattleState::Victory      ||
             m_state == BattleState::Defeat) {
             nextMessage();
         }
@@ -226,6 +231,8 @@ void BattleSystem::checkFainted() {
         m_state = BattleState::EnemyFainted;
     } else {
         pushMessage(m_player->getName() + " fainted!");
+        pushMessage("You have no more usable Pokemon!");
+        pushMessage("You whited out!");
         m_state = BattleState::PlayerFainted;
     }
 }
@@ -292,6 +299,23 @@ void BattleSystem::applyEXP() {
     }
 }
 
+void BattleSystem::loadSprites() {
+    m_playerTexLoaded = false;
+    m_enemyTexLoaded  = false;
+    if (!m_player || !m_enemy) return;
+
+    char buf[256];
+    // Sprite de espalda para el pokemon del jugador (Verde Hoja: back sprite)
+    std::snprintf(buf, sizeof(buf), "assets/pokemon/back/%03d.png",
+                  static_cast<int>(m_player->species));
+    m_playerTexLoaded = m_playerTex.loadFromFile(buf);
+
+    // Sprite frontal para el pokemon salvaje (Verde Hoja: front sprite)
+    std::snprintf(buf, sizeof(buf), "assets/pokemon/front/%03d.png",
+                  static_cast<int>(m_enemy->species));
+    m_enemyTexLoaded = m_enemyTex.loadFromFile(buf);
+}
+
 void BattleSystem::update(float dt) {
     // Animate HP bars
     float target = m_enemy  ? static_cast<float>(m_enemy->currentHP)  : 0.f;
@@ -320,21 +344,34 @@ void BattleSystem::drawHPBar(sf::RenderTarget& t, sf::Vector2f pos, float fracti
 }
 
 void BattleSystem::drawPokemon(sf::RenderTarget& t, const PokemonInstance& p,
-                                sf::Vector2f pos, bool flip) const {
-    const SpeciesData& sp = getSpeciesData(p.species);
-    sf::Color c((sp.color >> 24) & 0xFF, (sp.color >> 16) & 0xFF,
-                (sp.color >> 8)  & 0xFF, sp.color & 0xFF);
+                                sf::Vector2f pos, bool smallSprite,
+                                const sf::Texture* tex) const {
+    float sz = smallSprite ? 48.f : 64.f;
 
-    float sz = flip ? 48.f : 64.f;
-    sf::RectangleShape body(sf::Vector2f(sz, sz));
-    body.setOrigin({sz/2.f, sz/2.f});
-    body.setPosition(pos);
-    body.setFillColor(c);
-    body.setOutlineColor(sf::Color::Black);
-    body.setOutlineThickness(2.f);
-    t.draw(body);
+    if (tex) {
+        sf::Vector2u tsz = tex->getSize();
+        float scale = sz / static_cast<float>(std::max(tsz.x, tsz.y));
+        sf::Sprite spr(*tex);
+        spr.setScale({scale, scale});
+        spr.setOrigin({static_cast<float>(tsz.x) / 2.f,
+                       static_cast<float>(tsz.y) / 2.f});
+        spr.setPosition(pos);
+        t.draw(spr);
+    } else {
+        // Placeholder: rectángulo del color de la especie
+        const SpeciesData& sp = getSpeciesData(p.species);
+        sf::Color c((sp.color >> 24) & 0xFF, (sp.color >> 16) & 0xFF,
+                    (sp.color >> 8)  & 0xFF, sp.color & 0xFF);
+        sf::RectangleShape body(sf::Vector2f(sz, sz));
+        body.setOrigin({sz/2.f, sz/2.f});
+        body.setPosition(pos);
+        body.setFillColor(c);
+        body.setOutlineColor(sf::Color::Black);
+        body.setOutlineThickness(2.f);
+        t.draw(body);
+    }
 
-    // Label name above
+    // Etiqueta nombre + nivel (como en Verde Hoja)
     sf::Text lbl(m_font);
     lbl.setCharacterSize(10);
     lbl.setFillColor(sf::Color::Black);
@@ -364,32 +401,35 @@ void BattleSystem::drawBattleBox(sf::RenderTarget& t, sf::Vector2u sz) const {
 
     if (!m_enemy || !m_player) return;
 
-    // Enemy pokemon (back-left, smaller because front)
-    drawPokemon(t, *m_enemy,  {W * 0.25f, H * 0.28f}, false);
-    drawPokemon(t, *m_player, {W * 0.75f, H * 0.48f}, true);
+    // Verde Hoja layout: enemigo (sprite frontal) arriba-derecha,
+    //                    jugador  (sprite de espalda) abajo-izquierda
+    drawPokemon(t, *m_enemy,  {W * 0.75f, H * 0.28f}, true,
+                m_enemyTexLoaded  ? &m_enemyTex  : nullptr);
+    drawPokemon(t, *m_player, {W * 0.25f, H * 0.48f}, false,
+                m_playerTexLoaded ? &m_playerTex : nullptr);
 
-    // Enemy HP bar
+    // Barra de HP del enemigo — arriba-derecha (como en Verde Hoja)
     float ehpFrac = m_enemy->maxHP > 0
         ? m_enemyHPDisplay / static_cast<float>(m_enemy->maxHP) : 0.f;
-    drawHPBar(t, {W * 0.05f, H * 0.12f}, ehpFrac, 120.f);
+    drawHPBar(t, {W * 0.55f, H * 0.12f}, ehpFrac, 120.f);
 
     sf::Text ehp(m_font);
     ehp.setCharacterSize(10);
     ehp.setFillColor(sf::Color::Black);
     ehp.setString("HP: " + std::to_string(m_enemy->currentHP) + "/" + std::to_string(m_enemy->maxHP));
-    ehp.setPosition({W * 0.05f, H * 0.12f + 10.f});
+    ehp.setPosition({W * 0.55f, H * 0.12f + 10.f});
     t.draw(ehp);
 
-    // Player HP bar
+    // Barra de HP del jugador — abajo-izquierda (como en Verde Hoja)
     float phpFrac = m_player->maxHP > 0
         ? m_playerHPDisplay / static_cast<float>(m_player->maxHP) : 0.f;
-    drawHPBar(t, {W * 0.55f, H * 0.62f}, phpFrac, 120.f);
+    drawHPBar(t, {W * 0.05f, H * 0.62f}, phpFrac, 120.f);
 
     sf::Text php(m_font);
     php.setCharacterSize(10);
     php.setFillColor(sf::Color::Black);
     php.setString("HP: " + std::to_string(m_player->currentHP) + "/" + std::to_string(m_player->maxHP));
-    php.setPosition({W * 0.55f, H * 0.62f + 10.f});
+    php.setPosition({W * 0.05f, H * 0.62f + 10.f});
     t.draw(php);
 
     // Message box
